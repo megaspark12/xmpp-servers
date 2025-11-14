@@ -1,0 +1,13 @@
+project_id   = "my-gcp-project-id"
+region       = "europe-west1"
+cluster_name = "xmpp-prod"
+
+master_authorized_networks = [
+  {
+    cidr_block   = "203.0.113.42/32"
+    display_name = "macbook"
+  }
+]
+
+node_pool_min_count = 3
+node_pool_max_count = 6
