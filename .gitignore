@@ -2,10 +2,10 @@
 infra/.DS_Store
 
 # Terraform state and local caches
-infra/terraform/.terraform/
-infra/terraform/state/
-infra/terraform/*.tfstate
-infra/terraform/*.tfstate.*
+*/terraform/.terraform/
+*/terraform/state/
+*/terraform/*.tfstate
+*/terraform/*.tfstate.*
 *.tfvars
 !infra/terraform/terraform.tfvars.example
-infra/terraform/tfplan
+*/terraform/tfplan
