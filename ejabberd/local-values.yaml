@@ -27,6 +27,12 @@ resources:
     memory: 1Gi
 
 acl:
+  local:
+    user_regexp: ""
+  loopback:
+    ip:
+      - 127.0.0.0/8
+      - ::1/128
   admin:
     user: admin@xmpp.local
 
@@ -34,11 +40,44 @@ access_rules:
   configure:
     allow: admin
 
-api_permissions:
-  "webadmin commands":
-    from: ejabberd_web_admin
-    who: admin
+apiPermissions:
+  "admin access":
+    what:
+      - "*"
+      - "!stop"
+      - "!start"
+    who:
+      access:
+        allow:
+          - acl: loopback
+          - acl: admin
+      oauth:
+        access:
+          allow:
+            - acl: loopback
+            - acl: admin
+        scope: ejabberd:admin
+  "console commands":
+    from:
+      - ejabberd_ctl
+      - mod_http_api
     what: "*"
+    who: all
+  "public commands":
+    what:
+      - status
+      - connected_users_number
+    who:
+      ip: 127.0.0.1/8
+  "webadmin commands":
+    from:
+      - ejabberd_web_admin
+    who:
+      access:
+        allow:
+          - acl: admin
+    what:
+      - "*"
 
 # expose admin UI + HTTP API handlers via HTTPS (port 5443)
 listen:

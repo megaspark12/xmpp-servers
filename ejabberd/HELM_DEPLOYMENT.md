@@ -52,6 +52,12 @@ This keeps three replicas online, provisions 10 Gi persistent volumes per pod,
 requests reasonable baseline resources, and exposes TCP (5222/5269/5443) and UDP
 (3478) services through dedicated Google Cloud Load Balancers.
 
+> **API permissions requirement:** The startup/readiness script calls
+> `http://127.0.0.1:5281/api/status`. Keep the default `apiPermissions`
+> definitions (`admin access`, `console commands`, `public commands`) alongside
+> the custom `webadmin commands` override in `local-values.yaml`; otherwise those
+> probes fail and pods remain stuck in `ContainerCreating`.
+
 ## 2. Bootstrap namespace and TLS secret
 
 ```bash
@@ -62,15 +68,23 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -subj "/CN=xmpp.local" \
   -keyout "$tmpdir/ejabberd.key" \
   -out "$tmpdir/ejabberd.crt"
-kubectl -n ejabberd create secret tls ejabberd-local-cert \
-  --cert="$tmpdir/ejabberd.crt" \
-  --key="$tmpdir/ejabberd.key"
+cat "$tmpdir/ejabberd.crt" "$tmpdir/ejabberd.key" > "$tmpdir/ejabberd.pem"
+kubectl -n ejabberd create secret generic ejabberd-local-cert \
+  --type kubernetes.io/tls \
+  --from-file=tls.crt="$tmpdir/ejabberd.crt" \
+  --from-file=tls.key="$tmpdir/ejabberd.key" \
+  --from-file=ejabberd.pem="$tmpdir/ejabberd.pem"
 rm -rf "$tmpdir"
 ```
 
 Replace the OpenSSL block with the workflow that issues your production
 certificate; the secret name must stay in sync with
 `.Values.certFiles.secretName`.
+
+> **Why `ejabberd.pem`?** The chart mounts `/opt/ejabberd/certs/<secret>/` and
+> expects at least one `*.pem` bundle (cert + key). Adding `ejabberd.pem`
+> ensures the HTTPS admin listener (5443/tcp) can successfully present a
+> certificate.
 
 ## 3. Install / upgrade the release
 
@@ -85,8 +99,8 @@ The chart is now sourced from the hosted Helm repository, so the `helm repo add`
 step only needs to be run once per environment; subsequent deploys can reuse the
 registered repo after calling `helm repo update`.
 
-The deploy on 2025‑11‑14 finished with `revision: 2` and issued one TCP Load
-Balancer (`146.148.113.87`) and one UDP Load Balancer (`146.148.122.162`).
+The deploy on 2025‑11‑16 finished with `revision: 1` and issued one TCP Load
+Balancer (`34.77.199.201`) and one UDP Load Balancer (`34.14.30.6`).
 
 ## 4. Validate HA + scaling
 
@@ -114,22 +128,22 @@ kubectl -n ejabberd get svc ejabberd-udp
 
 At the time of deployment:
 
-- `ejabberd` (TCP) external IP: **146.148.113.87**
-- `ejabberd-udp` external IP: **146.148.122.162**
+- `ejabberd` (TCP) external IP: **34.78.219.219**
+- `ejabberd-udp` external IP: **35.187.123.27**
 
 From the macOS workstation, map `xmpp.local` to the TCP IP (or create a proper
 DNS record) and confirm reachability:
 
 ```bash
 # macOS /etc/hosts entry
-echo "146.148.113.87 xmpp.local" | sudo tee -a /etc/hosts
+echo "34.78.219.219 xmpp.local" | sudo tee -a /etc/hosts
 
 # Connectivity tests
-nc -vz 146.148.113.87 5222   # jabber-client
-nc -vz 146.148.113.87 5443   # https interface
+nc -vz 34.78.219.219 5222   # jabber-client
+nc -vz 34.78.219.219 5443   # https interface
 ```
 
-For UDP/STUN, point clients to `146.148.122.162:3478`.
+For UDP/STUN, point clients to `35.187.123.27:3478`.
 
 ## 6. Optional functional checks
 
@@ -144,3 +158,40 @@ kubectl -n ejabberd exec ejabberd-0 -- \
 
 Use any XMPP client (e.g., Gajim) on macOS, point it at `xmpp.local`, port 5222,
 enable TLS, and authenticate with the test user to perform an end-to-end check.
+
+## 7. Web admin & HTTP API
+
+`local-values.yaml` exposes the admin UI on both HTTP (5280/tcp) and HTTPS
+(5443/tcp) and grants admin access to the `admin@xmpp.local` account.
+
+1. Create the admin user (rotate the password prior to production hardening).
+   This deployment registered `admin@xmpp.local` with `Adm1n!2345678`:
+
+   ```bash
+   kubectl -n ejabberd exec ejabberd-0 -- \
+     ejabberdctl register admin xmpp.local 'Adm1n!2345678'
+   ```
+
+2. Map the load balancer IP to `xmpp.local` (see section 5) and confirm both
+   listeners are enforcing HTTP Basic Auth. Examples from this deployment:
+
+   ```bash
+   # Expect 401 without credentials
+   curl -I http://34.78.219.219:5280/admin/
+
+   # HTTPS check with TLS + credentials (returns HTTP 200)
+   curl -sk --resolve xmpp.local:5443:34.78.219.219 \
+     -u admin:Adm1n!2345678 \
+     https://xmpp.local:5443/admin/ \
+     -o /tmp/ejadmin.html -w '%{http_code}\n'
+   ```
+
+3. Browse to `https://xmpp.local:5443/admin/`, accept the self-signed cert, and
+   sign in with the admin credentials to manage users, nodes, and connected
+   clients. The HTTPS listener now succeeds because the TLS secret contains the
+   concatenated `ejabberd.pem` bundle described in section 2.
+
+4. Invoke HTTP API endpoints with the same credentials. The readiness probes and
+   manual `curl` checks use `https://xmpp.local:5443/api/status`, so keeping the
+   Basic Auth credentials handy (or storing them in a Kubernetes secret) is
+   essential for automation and monitoring.
