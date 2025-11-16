@@ -1,7 +1,7 @@
 # ejabberd HA Deployment Notes (GKE)
 
-This captures the working steps used to deploy the ejabberd Helm chart onto the
-`chkp-gcp-prd-kenobi-box` regional GKE cluster and validate availability,
+This captures the working steps used to deploy the ejabberd Helm chart onto a
+regional GKE cluster and validate availability,
 scalability, and external access from macOS.
 
 ## Repository layout
@@ -100,7 +100,7 @@ step only needs to be run once per environment; subsequent deploys can reuse the
 registered repo after calling `helm repo update`.
 
 The deploy on 2025‑11‑16 finished with `revision: 1` and issued one TCP Load
-Balancer (`34.77.199.201`) and one UDP Load Balancer (`34.14.30.6`).
+Balancer (`<TCP_LB_IP>`) and one UDP Load Balancer (`<UDP_LB_IP>`).
 
 ## 4. Validate HA + scaling
 
@@ -128,22 +128,22 @@ kubectl -n ejabberd get svc ejabberd-udp
 
 At the time of deployment:
 
-- `ejabberd` (TCP) external IP: **34.78.219.219**
-- `ejabberd-udp` external IP: **35.187.123.27**
+- `ejabberd` (TCP) external IP: **<TCP_LB_IP>**
+- `ejabberd-udp` external IP: **<UDP_LB_IP>**
 
 From the macOS workstation, map `xmpp.local` to the TCP IP (or create a proper
 DNS record) and confirm reachability:
 
 ```bash
 # macOS /etc/hosts entry
-echo "34.78.219.219 xmpp.local" | sudo tee -a /etc/hosts
+echo "<TCP_LB_IP> xmpp.local" | sudo tee -a /etc/hosts
 
 # Connectivity tests
-nc -vz 34.78.219.219 5222   # jabber-client
-nc -vz 34.78.219.219 5443   # https interface
+nc -vz <TCP_LB_IP> 5222   # jabber-client
+nc -vz <TCP_LB_IP> 5443   # https interface
 ```
 
-For UDP/STUN, point clients to `35.187.123.27:3478`.
+For UDP/STUN, point clients to `<UDP_LB_IP>:3478`.
 
 ## 6. Optional functional checks
 
@@ -164,12 +164,12 @@ enable TLS, and authenticate with the test user to perform an end-to-end check.
 `local-values.yaml` exposes the admin UI on both HTTP (5280/tcp) and HTTPS
 (5443/tcp) and grants admin access to the `admin@xmpp.local` account.
 
-1. Create the admin user (rotate the password prior to production hardening).
-   This deployment registered `admin@xmpp.local` with `Adm1n!2345678`:
+1. Create the admin user (rotate the password prior to production hardening),
+   for example:
 
    ```bash
    kubectl -n ejabberd exec ejabberd-0 -- \
-     ejabberdctl register admin xmpp.local 'Adm1n!2345678'
+     ejabberdctl register admin xmpp.local '<STRONG_PASSWORD>'
    ```
 
 2. Map the load balancer IP to `xmpp.local` (see section 5) and confirm both
@@ -177,11 +177,11 @@ enable TLS, and authenticate with the test user to perform an end-to-end check.
 
    ```bash
    # Expect 401 without credentials
-   curl -I http://34.78.219.219:5280/admin/
+   curl -I http://<TCP_LB_IP>:5280/admin/
 
    # HTTPS check with TLS + credentials (returns HTTP 200)
-   curl -sk --resolve xmpp.local:5443:34.78.219.219 \
-     -u admin:Adm1n!2345678 \
+   curl -sk --resolve xmpp.local:5443:<TCP_LB_IP> \
+     -u admin:'<STRONG_PASSWORD>' \
      https://xmpp.local:5443/admin/ \
      -o /tmp/ejadmin.html -w '%{http_code}\n'
    ```
