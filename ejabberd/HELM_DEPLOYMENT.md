@@ -22,6 +22,13 @@ deployment:
 hosts:
   - xmpp.local
 
+env:
+  - name: CTL_ON_CREATE
+    valueFrom:
+      secretKeyRef:
+        name: ejabberd-admin-bootstrap
+        key: ctl_on_create
+
 certFiles:
   secretName:
     - ejabberd-local-cert
@@ -74,6 +81,10 @@ kubectl -n ejabberd create secret generic ejabberd-local-cert \
   --from-file=tls.crt="$tmpdir/ejabberd.crt" \
   --from-file=tls.key="$tmpdir/ejabberd.key" \
   --from-file=ejabberd.pem="$tmpdir/ejabberd.pem"
+
+kubectl -n ejabberd create secret generic ejabberd-admin-bootstrap \
+  --from-literal=ctl_on_create="register admin xmpp.local <STRONG_PASSWORD>"
+
 rm -rf "$tmpdir"
 ```
 
@@ -165,7 +176,8 @@ enable TLS, and authenticate with the test user to perform an end-to-end check.
 (5443/tcp) and grants admin access to the `admin@xmpp.local` account.
 
 1. Create the admin user (rotate the password prior to production hardening),
-   for example:
+   for example (this now runs automatically via `CTL_ON_CREATE`, but you can
+   also invoke it manually):
 
    ```bash
    kubectl -n ejabberd exec ejabberd-0 -- \

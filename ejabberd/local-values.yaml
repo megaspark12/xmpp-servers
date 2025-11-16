@@ -40,6 +40,13 @@ access_rules:
   configure:
     allow: admin
 
+env:
+  - name: CTL_ON_CREATE
+    valueFrom:
+      secretKeyRef:
+        name: ejabberd-admin-bootstrap
+        key: ctl_on_create
+
 apiPermissions:
   "admin access":
     what:
