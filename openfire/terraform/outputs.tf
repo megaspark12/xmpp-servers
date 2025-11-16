@@ -28,3 +28,8 @@ output "openfire_db_instance_self_link" {
   description = "Self link for the Cloud SQL instance (useful for debugging)."
   value       = google_sql_database_instance.openfire.self_link
 }
+
+output "openfire_cloud_sql_sa" {
+  description = "Service account email used by Openfire pods to reach Cloud SQL via Workload Identity."
+  value       = google_service_account.openfire_sql.email
+}

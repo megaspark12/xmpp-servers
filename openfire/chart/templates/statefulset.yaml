@@ -1,0 +1,178 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "openfire.fullname" . }}
+  labels:
+    {{- include "openfire.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "openfire.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "openfire.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "openfire.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include "openfire.configChecksum" . }}
+        checksum/db-secret: {{ include "openfire.secretChecksum" . }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "openfire.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: render-config
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -euo
+              mkdir -p /var/lib/openfire/conf
+              cp /config/openfire.xml /var/lib/openfire/conf/openfire.xml.render
+              if [ -z "${DB_PASSWORD}" ]; then echo "DB_PASSWORD missing" >&2; exit 1; fi
+              ESCAPED=$(printf '%s\n' "${DB_PASSWORD}" | sed -e 's/[\/&]/\\&/g')
+              sed -i "s|__DB_PASSWORD__|${ESCAPED}|g" /var/lib/openfire/conf/openfire.xml.render
+              mv /var/lib/openfire/conf/openfire.xml.render /var/lib/openfire/conf/openfire.xml
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.database.existingSecret }}{{ .Values.database.existingSecret }}{{ else }}{{ include "openfire.fullname" . }}-db{{ end }}
+                  key: {{ .Values.database.secretKey }}
+          volumeMounts:
+            - name: openfire-data
+              mountPath: /var/lib/openfire
+            - name: openfire-config
+              mountPath: /config
+        {{- if .Values.openfire.cluster.enabled }}
+        - name: install-hazelcast
+          image: curlimages/curl:8.7.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -euo
+              mkdir -p /var/lib/openfire/plugins
+              if [ ! -f /var/lib/openfire/plugins/hazelcast.jar ]; then
+                curl -fsSL {{ .Values.openfire.cluster.hazelcast.downloadUrl }} -o /var/lib/openfire/plugins/hazelcast.jar
+              fi
+          volumeMounts:
+            - name: openfire-data
+              mountPath: /var/lib/openfire
+        {{- end }}
+      containers:
+        - name: openfire
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: JAVA_OPTS
+              value: {{ .Values.openfire.javaOpts | quote }}
+          ports:
+            - name: c2s
+              containerPort: {{ .Values.service.ports.client }}
+              protocol: TCP
+            - name: s2s
+              containerPort: {{ .Values.service.ports.server }}
+              protocol: TCP
+            - name: bosh
+              containerPort: {{ .Values.service.ports.bosh }}
+              protocol: TCP
+            - name: ws
+              containerPort: {{ .Values.service.ports.websocket }}
+              protocol: TCP
+            - name: admin
+              containerPort: {{ .Values.service.ports.admin }}
+              protocol: TCP
+            - name: admin-ssl
+              containerPort: {{ .Values.service.ports.adminSecure }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.service.ports.admin }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.service.ports.admin }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: openfire-data
+              mountPath: /var/lib/openfire
+        {{- if .Values.cloudSqlProxy.enabled }}
+        - name: cloud-sql-proxy
+          image: {{ .Values.cloudSqlProxy.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--structured-logs"
+            - "--port={{ .Values.database.port }}"
+            - "--address=127.0.0.1"
+            {{- range .Values.cloudSqlProxy.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+            - {{ required "database.connectionName must be set" .Values.database.connectionName | quote }}
+          resources:
+            {{- toYaml .Values.cloudSqlProxy.resources | nindent 12 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: openfire-config
+          configMap:
+            name: {{ include "openfire.fullname" . }}-config
+        {{- if not .Values.persistence.enabled }}
+        - name: openfire-data
+          emptyDir: {}
+        {{- end }}
+{{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: openfire-data
+        labels:
+          app.kubernetes.io/name: {{ include "openfire.name" . }}
+          app.kubernetes.io/instance: {{ .Release.Name }}
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+{{- end }}
