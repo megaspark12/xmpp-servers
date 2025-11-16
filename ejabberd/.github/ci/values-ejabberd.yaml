@@ -1,0 +1,60 @@
+elector:
+  enabled: "true"
+
+certFiles:
+  secretName:
+    - custom-cert
+  sideCar:
+    enabled: true
+    createRbac: true
+    nativeSidecar: true
+
+listen:
+  http:
+    expose: true
+    options:
+      request_handlers:
+        /api: mod_http_api
+        /upload: mod_http_upload
+
+sqlDatabase:
+  enabled: true
+  defaultDb: sql
+  config:
+    sql_database: ejabberdTest1
+    sql_username: ejabberdTest1
+    sql_password: SQL_PASSWORD
+  # flyway:
+  #   enabled: true
+
+authentification:
+  auth_method:
+   - sql
+
+redis:
+  enabled: true
+  defaultRamDb: redis
+  config:
+    redis_server: redis-master
+    redis_password: REDIS_PASSWORD
+
+modules:
+  mod_http_upload:
+    options:
+      put_url: http://@HOST@:5280/upload
+      custom_headers:
+        "Access-Control-Allow-Origin": "https://@HOST@"
+        "Access-Control-Allow-Methods": "GET,HEAD,PUT,OPTIONS"
+        "Access-Control-Allow-Headers": "Content-Type"
+
+persistence:
+  enabled: true
+
+erlangCookie:
+  secretName: "erlang-cookie"
+  secretKey: "cookie"
+
+
+envFrom:
+  - secretRef:
+      name: "sensitive-variables"

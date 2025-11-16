@@ -4,18 +4,9 @@ This captures the working steps used to deploy the ejabberd Helm chart onto the
 `chkp-gcp-prd-kenobi-box` regional GKE cluster and validate availability,
 scalability, and external access from macOS.
 
-## Repository layout
-
-```
-.
-├── HELM_DEPLOYMENT.md
-├── README.md
-└── local-values.yaml
-```
-
 ## 1. Prepare overrides
 
-`local-values.yaml` contains the production overrides used during the GKE
+`chart/local-values.yaml` contains the production overrides used during the GKE
 deployment:
 
 ```yaml
@@ -75,16 +66,11 @@ certificate; the secret name must stay in sync with
 ## 3. Install / upgrade the release
 
 ```bash
-helm repo add ejabberd https://sando38.github.io/helm-ejabberd
-helm repo update
-helm upgrade --install ejabberd ejabberd/ejabberd \
+helm dependency update chart/charts/ejabberd
+helm upgrade --install ejabberd chart/charts/ejabberd \
   -n ejabberd \
-  -f local-values.yaml
+  -f chart/local-values.yaml
 ```
-
-The chart is now sourced from the hosted Helm repository, so the `helm repo add`
-step only needs to be run once per environment; subsequent deploys can reuse the
-registered repo after calling `helm repo update`.
 
 The deploy on 2025‑11‑14 finished with `revision: 2` and issued one TCP Load
 Balancer (`146.148.113.87`) and one UDP Load Balancer (`146.148.122.162`).
