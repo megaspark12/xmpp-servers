@@ -46,3 +46,30 @@ This repo layer hardens the upstream chart for production HA. Changes in `local-
     https://xmpp.local:5443/admin/ -o /tmp/ejadmin.html -w '%{http_code}\n'
   ```
   Expect `200`. If you need temporary HTTP access, set `listen.http.expose: true` and re-upgrade, then disable again.
+
+## Cloud SQL (GCP) as the state backend
+- Provision the DB via Terraform (private IP, regional, PITR enabled):
+  ```bash
+  cd terraform/cloudsql
+  terraform init
+  terraform apply \
+    -var project_id=<PROJECT_ID> \
+    -var vpc_network="projects/<PROJECT_ID>/global/networks/<VPC_NAME>" \
+    -var region=europe-west1
+  ```
+  This creates a PG instance + database/user/password and stores connection data in secret `ejabberd-sql` (namespace `ejabberd`). The password lives in Terraform state; keep the backend secured.
+- Render a Helm overlay from Terraform outputs (kept out of git):
+  ```bash
+  ./scripts/render-cloudsql-values.sh cloudsql-values.generated.yaml
+  ```
+- Deploy using SQL:
+  ```bash
+  helm upgrade --install ejabberd ejabberd/ejabberd -n ejabberd \
+    -f local-values.yaml \
+    -f cloudsql-values.generated.yaml
+  ```
+- Post-deploy checks:
+  - `kubectl -n ejabberd get pods -o wide` (all 3 Ready).
+  - `kubectl -n ejabberd exec ejabberd-0 -- ejabberdctl status` and `list_cluster`.
+  - `kubectl -n ejabberd logs ejabberd-0 | grep -i sql` (no connection errors).
+  - `kubectl -n ejabberd get pdb ejabberd` (maxUnavailable: 1).

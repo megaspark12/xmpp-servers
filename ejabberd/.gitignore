@@ -1,0 +1,11 @@
+# Terraform state and caches
+.terraform/
+*.tfstate
+*.tfstate.backup
+terraform.tfstate.*
+terraform.lock.hcl
+terraform/cloudsql/.terraform/
+terraform/cloudsql/terraform.tfstate*
+
+# Generated Helm overlay
+cloudsql-values.generated.yaml
