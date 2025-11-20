@@ -5,8 +5,15 @@ certFiles:
   secretName:
     - ejabberd-local-cert
 
+erlangCookie:
+  value: ""
+  secretName: ejabberd-erlang-cookie
+  secretKey: erlang-cookie
+
 statefulSet:
   replicas: 3
+  terminationGracePeriodSeconds: 90
+  minReadySeconds: 20
 
 service:
   single: false
@@ -25,6 +32,9 @@ resources:
   requests:
     cpu: 500m
     memory: 1Gi
+  limits:
+    cpu: 1500m
+    memory: 2Gi
 
 acl:
   local:
@@ -35,10 +45,6 @@ acl:
       - ::1/128
   admin:
     user: admin@xmpp.local
-
-access_rules:
-  configure:
-    allow: admin
 
 env:
   - name: CTL_ON_CREATE
@@ -94,9 +100,37 @@ listen:
         /admin: ejabberd_web_admin
         /api: mod_http_api
   http:
-    expose: true
+    expose: false
     options:
       request_handlers:
         /admin: ejabberd_web_admin
         /api: mod_http_api
- 
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - ejabberd
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - ejabberd
+        topologyKey: kubernetes.io/hostname
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/instance
+                operator: In
+                values:
+                  - ejabberd
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - ejabberd
+          topologyKey: topology.kubernetes.io/zone

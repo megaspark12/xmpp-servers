@@ -83,7 +83,7 @@ kubectl -n ejabberd create secret generic ejabberd-local-cert \
   --from-file=ejabberd.pem="$tmpdir/ejabberd.pem"
 
 kubectl -n ejabberd create secret generic ejabberd-admin-bootstrap \
-  --from-literal=ctl_on_create="register admin xmpp.local <STRONG_PASSWORD>"
+  --from-literal=ctl_on_create="ejabberdctl register admin xmpp.local <STRONG_PASSWORD>"
 
 rm -rf "$tmpdir"
 ```
