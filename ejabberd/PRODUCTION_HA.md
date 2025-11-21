@@ -48,16 +48,17 @@ This repo layer hardens the upstream chart for production HA. Changes in `local-
   Expect `200`. If you need temporary HTTP access, set `listen.http.expose: true` and re-upgrade, then disable again.
 
 ## Cloud SQL (GCP) as the state backend
-- Provision the DB via Terraform (private IP, regional, PITR enabled):
+- Provision the DB via Terraform (private IP, regional, PITR enabled). Run `infra/terraform` first so the `network_name` exists:
   ```bash
   cd terraform/cloudsql
+  cp terraform.tfvars.example terraform.tfvars
+  # edit terraform.tfvars (project_id, region, optional network_name/private_service_cidr)
+
   terraform init
-  terraform apply \
-    -var project_id=<PROJECT_ID> \
-    -var vpc_network="projects/<PROJECT_ID>/global/networks/<VPC_NAME>" \
-    -var region=europe-west1
+  terraform plan -out=tfplan
+  terraform apply tfplan
   ```
-  This creates a PG instance + database/user/password and stores connection data in secret `ejabberd-sql` (namespace `ejabberd`). The password lives in Terraform state; keep the backend secured.
+  Key outputs: `sql_host`, `sql_database`, `sql_username`, `sql_password`, and `sql_connection_name`.
 - Render a Helm overlay from Terraform outputs (kept out of git):
   ```bash
   ./scripts/render-cloudsql-values.sh cloudsql-values.generated.yaml
