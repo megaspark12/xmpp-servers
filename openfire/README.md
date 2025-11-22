@@ -17,13 +17,13 @@ deploys Openfire v5.0.2 in HA mode on the regional GKE cluster.
 
 - `kubectl` context pointing at the regional GKE cluster
 - Helm 3
-- Terraform stack applied so the Cloud SQL instance & service account exist
-- Environment variables exported from Terraform outputs:
+- Terraform stack applied (from `infra/terraform`) so the Cloud SQL instance & service account exist
+- Environment variables exported from unified Terraform outputs:
 
 ```bash
-export OPENFIRE_DB_PASSWORD=$(terraform -chdir=openfire/terraform output -raw openfire_db_password)
-export OPENFIRE_DB_CONN=$(terraform -chdir=openfire/terraform output -raw openfire_db_connection_name)
-export OPENFIRE_GSA=$(terraform -chdir=openfire/terraform output -raw openfire_cloud_sql_sa)
+export OPENFIRE_DB_PASSWORD=$(terraform -chdir=infra/terraform output -raw openfire_sql_password)
+export OPENFIRE_DB_CONN=$(terraform -chdir=infra/terraform output -raw openfire_sql_connection_name)
+export OPENFIRE_GSA=$(terraform -chdir=infra/terraform output -raw openfire_cloudsql_service_account)
 ```
 
 ## Install / upgrade
@@ -78,5 +78,6 @@ Cloud SQL Proxy, so no firewall updates are required.
 - Scale manually: `kubectl scale sts openfire-openfire -n openfire --replicas=5`
 - Rotate DB password: run `terraform apply` to issue a new password, then redeploy
   Helm with the updated secret value (rolling update is automatic).
-- Remove everything: `helm uninstall openfire -n openfire` followed by
-  `terraform destroy` in `openfire/terraform`.
+- Remove everything: `helm uninstall openfire -n openfire` followed by setting
+  `enable_openfire_cloudsql=false` in `infra/terraform/terraform.tfvars` and
+  running `terraform plan -out=tfplan && terraform apply tfplan` from `infra/terraform`.

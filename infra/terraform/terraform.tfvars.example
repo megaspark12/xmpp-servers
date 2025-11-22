@@ -11,3 +11,13 @@ master_authorized_networks = [
 
 node_pool_min_count = 3
 node_pool_max_count = 6
+
+# Optional: enable managed databases
+# enable_ejabberd_cloudsql = true
+# enable_openfire_cloudsql = true
+# cloudsql_use_private_ip  = true
+# cloudsql_create_psa      = false   # set true to let Terraform reserve PSA range and connection
+# cloudsql_psa_cidr        = "10.60.0.0/24"
+# cloudsql_psa_range_name  = "xmpp-sql-private"
+# ejabberd_sql_instance_name = "ejabberd-sql"
+# openfire_sql_instance_name = "openfire-sql"

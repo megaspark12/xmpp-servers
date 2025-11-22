@@ -2,7 +2,7 @@
 set -euo pipefail
 
 OUT_FILE=${1:-cloudsql-values.generated.yaml}
-TF_DIR="terraform/cloudsql"
+TF_DIR="../infra/terraform"
 
 if ! command -v terraform >/dev/null 2>&1; then
   echo "terraform not found in PATH" >&2
@@ -10,10 +10,10 @@ if ! command -v terraform >/dev/null 2>&1; then
 fi
 
 echo "Reading Cloud SQL outputs from ${TF_DIR} ..."
-SQL_HOST=$(terraform -chdir="${TF_DIR}" output -raw sql_host)
-SQL_DB=$(terraform -chdir="${TF_DIR}" output -raw sql_database)
-SQL_USER=$(terraform -chdir="${TF_DIR}" output -raw sql_username)
-SQL_PASS=$(terraform -chdir="${TF_DIR}" output -raw sql_password)
+SQL_HOST=$(terraform -chdir="${TF_DIR}" output -raw ejabberd_sql_host)
+SQL_DB=$(terraform -chdir="${TF_DIR}" output -raw ejabberd_sql_database)
+SQL_USER=$(terraform -chdir="${TF_DIR}" output -raw ejabberd_sql_username)
+SQL_PASS=$(terraform -chdir="${TF_DIR}" output -raw ejabberd_sql_password)
 
 cat > "${OUT_FILE}" <<EOF
 sqlDatabase:

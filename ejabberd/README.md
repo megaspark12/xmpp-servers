@@ -80,6 +80,75 @@ services:
       - ERLANG_NODE_ARG=ejabberd@localhost
 ```
 
+## GKE Deployment Notes (HA)
+
+```bash
+cd ejabberd
+# prepare namespace and TLS/admin secrets (example self-signed)
+kubectl create namespace ejabberd
+tmpdir=$(mktemp -d)
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -subj "/CN=xmpp.local" \
+  -keyout "$tmpdir/ejabberd.key" \
+  -out "$tmpdir/ejabberd.crt"
+cat "$tmpdir/ejabberd.crt" "$tmpdir/ejabberd.key" > "$tmpdir/ejabberd.pem"
+kubectl -n ejabberd create secret generic ejabberd-local-cert \
+  --type kubernetes.io/tls \
+  --from-file=tls.crt="$tmpdir/ejabberd.crt" \
+  --from-file=tls.key="$tmpdir/ejabberd.key" \
+  --from-file=ejabberd.pem="$tmpdir/ejabberd.pem"
+kubectl -n ejabberd create secret generic ejabberd-admin-bootstrap \
+  --from-literal=ctl_on_create="ejabberdctl register admin xmpp.local <STRONG_PASSWORD>"
+rm -rf "$tmpdir"
+
+# deploy (local-values.yaml contains HA overrides)
+helm upgrade --install ejabberd ejabberd/ejabberd -n ejabberd -f local-values.yaml
+```
+
+Key HA settings (from `local-values.yaml`):
+- 3 replicas, 10Gi RWO PVCs, anti-affinity, 90s termination grace
+- TCP/UDP LBs (GKE limitation on shared protocols)
+- Resources: requests 500m/1Gi, limits 1500m/2Gi
+- HTTP admin disabled by default (`listen.http.expose: false`); HTTPS admin on 5443
+
+Validation:
+- `kubectl -n ejabberd rollout status statefulset/ejabberd`
+- `kubectl -n ejabberd get pods -o wide` (spread across zones)
+- `kubectl -n ejabberd exec ejabberd-0 -- ejabberdctl status` and `list_cluster`
+- `kubectl -n ejabberd get svc ejabberd` (LB IPs present)
+
+Optional PDB:
+```bash
+kubectl apply -f ha-manifests/ejabberd-pdb.yaml
+```
+
+## Cloud SQL (GCP) as the state backend
+
+Provision via unified Terraform (private IP, regional, PITR enabled):
+```bash
+cd infra/terraform
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+```
+- Set `enable_ejabberd_cloudsql=true` in `infra/terraform/terraform.tfvars` before planning/applying.
+- Key outputs: `ejabberd_sql_host`, `ejabberd_sql_database`, `ejabberd_sql_username`, `ejabberd_sql_password`, `ejabberd_sql_connection_name`.
+
+Render Helm overlay from Terraform outputs:
+```bash
+cd ejabberd
+./scripts/render-cloudsql-values.sh cloudsql-values.generated.yaml
+helm upgrade --install ejabberd ejabberd/ejabberd -n ejabberd \
+  -f local-values.yaml \
+  -f cloudsql-values.generated.yaml
+```
+
+Post-deploy checks (SQL):
+- `kubectl -n ejabberd get pods -o wide` (all Ready)
+- `kubectl -n ejabberd exec ejabberd-0 -- ejabberdctl status` and `list_cluster`
+- `kubectl -n ejabberd logs ejabberd-0 | grep -i sql` (no errors)
+- `kubectl -n ejabberd get pdb ejabberd` (PDB honored)
+
 Note: `command` and `environment` arguments are required to simulate the
 official image behhavior.
 

@@ -1,8 +1,8 @@
 locals {
-  sanitized_cluster_name          = lower(replace(replace(var.cluster_name, "_", "-"), " ", "-"))
-  sanitized_cluster_name_trimmed  = trim(local.sanitized_cluster_name, "-")
-  node_sa_base                    = local.sanitized_cluster_name_trimmed != "" ? local.sanitized_cluster_name_trimmed : "xmpp"
-  node_sa_account_id              = substr(local.node_sa_base, 0, min(20, length(local.node_sa_base)))
+  sanitized_cluster_name         = lower(replace(replace(var.cluster_name, "_", "-"), " ", "-"))
+  sanitized_cluster_name_trimmed = trim(local.sanitized_cluster_name, "-")
+  node_sa_base                   = local.sanitized_cluster_name_trimmed != "" ? local.sanitized_cluster_name_trimmed : "xmpp"
+  node_sa_account_id             = substr(local.node_sa_base, 0, min(20, length(local.node_sa_base)))
 
   node_sa_roles = [
     "roles/artifactregistry.reader",

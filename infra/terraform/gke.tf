@@ -19,7 +19,7 @@ resource "google_container_cluster" "primary" {
     channel = var.release_channel
   }
 
-  networking_mode  = "VPC_NATIVE"
+  networking_mode   = "VPC_NATIVE"
   datapath_provider = "ADVANCED_DATAPATH"
 
   ip_allocation_policy {
@@ -66,7 +66,7 @@ resource "google_container_cluster" "primary" {
 
   resource_labels = var.cluster_labels
 
-  enable_shielded_nodes = true
+  enable_shielded_nodes     = true
   default_max_pods_per_node = var.default_max_pods_per_node
 
   depends_on = [
@@ -95,15 +95,15 @@ resource "google_container_node_pool" "primary" {
   }
 
   node_config {
-    preemptible  = false
-    machine_type = var.node_machine_type
-    image_type   = var.node_image_type
-    disk_type    = "pd-balanced"
-    disk_size_gb = var.node_disk_size_gb
+    preemptible     = false
+    machine_type    = var.node_machine_type
+    image_type      = var.node_image_type
+    disk_type       = "pd-balanced"
+    disk_size_gb    = var.node_disk_size_gb
     service_account = google_service_account.node_pool.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
 
-    tags   = var.node_tags
+    tags = var.node_tags
     labels = merge({
       "cluster"  = var.cluster_name,
       "workload" = "xmpp"
