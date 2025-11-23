@@ -1,6 +1,6 @@
 # Deploy ejabberd on Kubernetes (HA)
 
-This repo contains a hardened Helm chart for ejabberd. Use `values.yaml` for HA defaults (3 replicas, anti-affinity, 10Gi PVCs, 90s termination grace, pinned cluster cookie, HTTPS admin only).
+This repo contains a hardened Helm chart for ejabberd. Use `values.yaml` for HA defaults (3 replicas, anti-affinity, 10Gi PVCs, 90s termination grace, pinned cluster cookie, HTTPS admin only). The chart ships with the built-in Mnesia database; use the Cloud SQL steps below to switch to managed PostgreSQL.
 
 ## Prerequisites (one time)
 
@@ -63,33 +63,40 @@ curl -sk --resolve xmpp.local:5443:<TCP_LB_IP> \
 
 Expect `200`. If you must temporarily expose HTTP admin, set `listen.http.expose: true` in `values.yaml`, upgrade, then revert.
 
-## Optional: Cloud SQL (GCP) backend
+## Cloud SQL (GCP) backend
 
-Provision a private-IP, regional, PITR-enabled Cloud SQL instance first:
+To replace the default Mnesia database with managed PostgreSQL:
+
+1) Enable the ejabberd Cloud SQL module in Terraform (private IP + PITR by default):
 
 ```bash
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars (project_id, region, optional network_name/private_service_cidr)
-# set enable_ejabberd_cloudsql=true
+# edit terraform.tfvars (project_id, region, master_authorized_networks, etc.)
+# set enable_ejabberd_cloudsql=true (plus cloudsql_use_private_ip/cloudsql_create_psa as needed)
 
 terraform init
 terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-Use outputs (`ejabberd_sql_host`, `ejabberd_sql_database`, `ejabberd_sql_username`, `ejabberd_sql_password`, `ejabberd_sql_connection_name`) to render a Helm overlay and deploy:
+2) Generate the Helm overlay from Terraform outputs (script reads state from `infra/terraform` and writes SQL creds into the values file):
 
 ```bash
 cd ejabberd
 ./scripts/render-cloudsql-values.sh cloudsql-values.generated.yaml
+```
+
+3) Install/upgrade the release with the Cloud SQL overlay:
+
+```bash
 helm upgrade --install ejabberd ejabberd/ejabberd -n ejabberd \
   -f values.yaml \
   -f cloudsql-values.generated.yaml
 ```
 
-SQL checks:
+4) Validate SQL is active (no `mnesia` fallbacks):
 - `kubectl -n ejabberd get pods -o wide` (all Ready)
 - `kubectl -n ejabberd exec ejabberd-0 -- ejabberdctl status` and `list_cluster`
-- `kubectl -n ejabberd logs ejabberd-0 | grep -i sql` (no errors)
+- `kubectl -n ejabberd logs ejabberd-0 | grep -i 'sql_'` (no errors)
 - `kubectl -n ejabberd get pdb ejabberd` (PDB honored)

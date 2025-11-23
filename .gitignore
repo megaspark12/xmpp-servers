@@ -9,3 +9,5 @@ infra/.DS_Store
 *.tfvars
 !infra/terraform/terraform.tfvars.example
 *tfplan
+
+ejabberd/cloudsql-values.generated.yaml

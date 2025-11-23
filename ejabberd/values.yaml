@@ -100,7 +100,7 @@ listen:
         /admin: ejabberd_web_admin
         /api: mod_http_api
   http:
-    expose: true
+    expose: false
     options:
       request_handlers:
         /admin: ejabberd_web_admin
