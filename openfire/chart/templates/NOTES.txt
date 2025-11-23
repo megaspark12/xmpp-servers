@@ -1,0 +1,10 @@
+The Openfire cluster is rolling out as a StatefulSet named {{ include "openfire.fullname" . }}.
+
+Key endpoints:
+  * XMPP client connections (c2s): {{ .Values.service.ports.client }} on the {{ .Values.service.type }} service "{{ include "openfire.fullname" . }}"
+  * XMPP server federation (s2s): {{ .Values.service.ports.server }} on the same service
+  * Admin console: http://{{ include "openfire.fullname" . }}:{{ .Values.service.ports.admin }}
+
+Validate once the rollout is complete:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}
+  kubectl run openfire-debug --rm -it --image=busybox:1.36 -n {{ .Release.Namespace }} --command -- nc -vz {{ include "openfire.fullname" . }} {{ .Values.service.ports.client }}

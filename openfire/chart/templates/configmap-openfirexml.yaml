@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openfire.fullname" . }}-config
+  labels:
+    {{- include "openfire.labels" . | nindent 4 }}
+data:
+  openfire.xml: |-
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <jive>
+      <setup>true</setup>
+      <locale>{{ .Values.openfire.locale }}</locale>
+      <adminConsole>
+        <port>{{ .Values.openfire.adminConsole.port }}</port>
+        <securePort>{{ .Values.openfire.adminConsole.securePort }}</securePort>
+      </adminConsole>
+      <connectionProvider>
+        <className>org.jivesoftware.database.DefaultConnectionProvider</className>
+      </connectionProvider>
+      <database>
+        <defaultProvider>
+          <driver>org.postgresql.Driver</driver>
+          <serverURL>jdbc:postgresql://{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}</serverURL>
+          <username>{{ .Values.database.user }}</username>
+          <password>__DB_PASSWORD__</password>
+          <testSQL>select 1</testSQL>
+          <timeout>10</timeout>
+          <maxConnections>{{ .Values.database.maxConnections }}</maxConnections>
+          <poolMinConnections>{{ .Values.database.poolMinConnections }}</poolMinConnections>
+          <poolMaxConnections>{{ .Values.database.poolMaxConnections }}</poolMaxConnections>
+        </defaultProvider>
+      </database>
+      <jdbcProvider>
+        <enabled>true</enabled>
+      </jdbcProvider>
+      <jmx>
+        <enabled>false</enabled>
+      </jmx>
+      <xmpp>
+        <domain>{{ .Values.openfire.domain }}</domain>
+        <fqdn>{{ .Values.openfire.domain }}</fqdn>
+        <port>{{ .Values.openfire.ports.client }}</port>
+        <securePort>{{ .Values.openfire.ports.clientSecure }}</securePort>
+        <multiplex>
+          <enabled>true</enabled>
+        </multiplex>
+      </xmpp>
+      {{- if .Values.openfire.cluster.enabled }}
+      <cluster>
+        <className>org.jivesoftware.openfire.plugin.util.cache.ClusteredCacheFactory</className>
+        <enabled>true</enabled>
+        <policy>automatic</policy>
+      </cluster>
+      <cache>
+        <className>org.jivesoftware.openfire.plugin.util.cache.ClusteredCacheFactory</className>
+      </cache>
+      {{- else }}
+      <cache>
+        <className>org.jivesoftware.util.cache.DefaultCacheFactory</className>
+      </cache>
+      {{- end }}
+      <ssl>
+        <enabled>true</enabled>
+      </ssl>
+    </jive>

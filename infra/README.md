@@ -1,6 +1,6 @@
 # xmpp Production Infrastructure on GCP
 
-This directory contains the Terraform configuration that builds all cloud resources required to run the xmpp Helm chart on a highly-available Google Kubernetes Engine (GKE) regional cluster. The Terraform state intentionally stays local (`infra/terraform/state/terraform.tfstate`) so the entire workflow can be reproduced offline and audited before applying.
+This directory contains the Terraform configuration that builds all cloud resources required to run the xmpp Helm chart on a highly-available Google Kubernetes Engine (GKE) regional cluster. Optional modules in the same stack can create managed PostgreSQL databases for ejabberd and/or openfire. The Terraform state intentionally stays local (`infra/terraform/state/terraform.tfstate`) so the entire workflow can be reproduced offline and audited before applying.
 
 ## Architecture
 
@@ -11,6 +11,7 @@ Terraform provisions the following components:
 3. **Regional GKE cluster** – the control plane lives in `europe-west1` and spans `europe-west1-b/c/d`, with Shielded Nodes, Workload Identity, VPC-native networking, and default cluster autoscaling disabled in favor of carefully managed node pools.
 4. **Managed node pool** – Terraform manages a single primary pool spread across all three zones (one node per zone by default) with hardened metadata/access settings and a dedicated service account with only the permissions xmpp needs.
 5. **Outputs** – helper commands (`gcloud container clusters get-credentials ...`) to plug the cluster into your MacBook once apply succeeds.
+6. **(Optional) Cloud SQL** – regional PostgreSQL instances (private IP via PSA) for ejabberd/openfire, plus database/user credentials and a Workload Identity service account for openfire.
 
 ## Prerequisites
 
@@ -52,6 +53,10 @@ Terraform provisions the following components:
    - `project_id`, `region`, and `cluster_name`
    - `master_authorized_networks` to include your MacBook IP CIDR block(s)
    - Optional scaling tweaks such as `node_machine_type` or `node_pool_*` counts
+   - Optional DB toggles:
+     - `enable_ejabberd_cloudsql` / `enable_openfire_cloudsql`
+     - `cloudsql_use_private_ip` (default `true`) and `cloudsql_create_psa` (set `true` only if no PSA exists yet)
+     - Per-app sizing overrides such as `*_sql_tier`, `*_sql_disk_size_gb`, etc.
 3. (Optional) Commit the variable file to a secure secrets manager, not to git. `terraform.tfvars` is ignored by `.gitignore` on purpose.
 
 ## Provision the infrastructure with Terraform
@@ -95,6 +100,13 @@ cluster_name = "<cluster-name>"
 node_pool_min_count = 3
 node_pool_max_count = 6
 master_authorized_networks = [] # or set your /32 workstation CIDR
+# Optional: enable managed databases
+# enable_ejabberd_cloudsql = true
+# enable_openfire_cloudsql = true
+# cloudsql_use_private_ip  = true
+# cloudsql_create_psa      = true
+# cloudsql_psa_cidr        = "10.60.0.0/24"
+# cloudsql_psa_range_name  = "xmpp-sql-private"
 EOF
 
 # 2. Initialize providers/state and preview the work
@@ -103,6 +115,10 @@ terraform plan -out=tfplan
 
 # 3. Apply the plan (took ~15 minutes end-to-end)
 terraform apply tfplan
+
+# 4. (Optional) If you enabled Cloud SQL, render the ejabberd overlay
+cd ../../ejabberd
+./scripts/render-cloudsql-values.sh cloudsql-values.generated.yaml
 ```
 
 Post-apply validations (run against the same project you targeted):
@@ -159,12 +175,12 @@ Observed results:
    ```bash
    helm dependency update chart/charts/xmpp
    ```
-2. Provide a production values file (start from `chart/local-values.yaml` or your own) that includes image/tag information, persistent volume classes that exist on GKE, and external service annotations if needed.
+2. Provide a production values file (start from `ejabberd/values.yaml` or your own) that includes image/tag information, persistent volume classes that exist on GKE, and external service annotations if needed.
 3. Install/upgrade the release:
    ```bash
    helm upgrade --install xmpp chart/charts/xmpp \
      --namespace xmpp --create-namespace \
-     -f chart/local-values.yaml
+     -f ejabberd/values.yaml
    ```
 4. Validation commands:
    ```bash

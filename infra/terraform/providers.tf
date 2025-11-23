@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/google-beta"
       version = "~> 5.30"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   backend "local" {
@@ -36,6 +40,6 @@ resource "google_project_service" "enabled" {
     "monitoring.googleapis.com"
   ])
 
-  service             = each.value
-  disable_on_destroy  = false
+  service            = each.value
+  disable_on_destroy = false
 }

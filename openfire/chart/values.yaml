@@ -1,0 +1,123 @@
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/igniterealtime/openfire
+  tag: v5.0.2
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 0
+
+securityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+
+persistence:
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+  storageClass: ""
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+service:
+  type: LoadBalancer
+  annotations: {}
+  loadBalancerIP: ""
+  externalTrafficPolicy: Cluster
+  ports:
+    client: 5222
+    server: 5269
+    bosh: 7070
+    websocket: 7443
+    admin: 9090
+    adminSecure: 9091
+
+openfire:
+  domain: xmpp.example.com
+  locale: en
+  adminConsole:
+    port: 9090
+    securePort: 9091
+  ports:
+    client: 5222
+    clientSecure: 5223
+  javaOpts: "-Xms1024m -Xmx2048m -XX:+UseG1GC"
+  cluster:
+    enabled: true
+    hazelcast:
+      downloadUrl: https://www.igniterealtime.org/projects/openfire/plugins/hazelcast.jar
+
+cloudSqlProxy:
+  enabled: true
+  image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  extraArgs: []
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  liveness:
+    path: /index.jsp
+    initialDelaySeconds: 60
+    periodSeconds: 20
+  readiness:
+    path: /index.jsp
+    initialDelaySeconds: 40
+    periodSeconds: 15
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+database:
+  host: 127.0.0.1
+  port: 5432
+  name: openfire
+  user: openfire_app
+  password: ""
+  existingSecret: ""
+  secretKey: password
+  maxConnections: 75
+  poolMinConnections: 5
+  poolMaxConnections: 35
+  connectionName: project:region:openfire-sql
+
+metrics:
+  enabled: false

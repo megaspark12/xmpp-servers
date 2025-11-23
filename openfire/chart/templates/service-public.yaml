@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openfire.fullname" . }}
+  labels:
+    {{- include "openfire.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+  selector:
+    app.kubernetes.io/name: {{ include "openfire.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: c2s
+      port: {{ .Values.service.ports.client }}
+      targetPort: c2s
+      protocol: TCP
+    - name: s2s
+      port: {{ .Values.service.ports.server }}
+      targetPort: s2s
+      protocol: TCP
+    - name: bosh
+      port: {{ .Values.service.ports.bosh }}
+      targetPort: bosh
+      protocol: TCP
+    - name: ws
+      port: {{ .Values.service.ports.websocket }}
+      targetPort: ws
+      protocol: TCP
+    - name: admin
+      port: {{ .Values.service.ports.admin }}
+      targetPort: admin
+      protocol: TCP
+    - name: admin-ssl
+      port: {{ .Values.service.ports.adminSecure }}
+      targetPort: admin-ssl
+      protocol: TCP

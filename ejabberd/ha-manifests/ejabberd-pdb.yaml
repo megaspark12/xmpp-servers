@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ejabberd
+  namespace: ejabberd
+  labels:
+    app.kubernetes.io/name: ejabberd
+    app.kubernetes.io/instance: ejabberd
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ejabberd
+      app.kubernetes.io/instance: ejabberd

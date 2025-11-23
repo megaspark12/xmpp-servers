@@ -1,0 +1,136 @@
+hosts:
+  - xmpp.local
+
+certFiles:
+  secretName:
+    - ejabberd-local-cert
+
+erlangCookie:
+  value: ""
+  secretName: ejabberd-erlang-cookie
+  secretKey: erlang-cookie
+
+statefulSet:
+  replicas: 3
+  terminationGracePeriodSeconds: 90
+  minReadySeconds: 20
+
+service:
+  single: false
+  type: LoadBalancer
+  spec:
+    externalTrafficPolicy: Cluster
+
+persistence:
+  enabled: true
+  storageClass: standard-rwo
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 1500m
+    memory: 2Gi
+
+acl:
+  local:
+    user_regexp: ""
+  loopback:
+    ip:
+      - 127.0.0.0/8
+      - ::1/128
+  admin:
+    user: admin@xmpp.local
+
+env:
+  - name: CTL_ON_CREATE
+    valueFrom:
+      secretKeyRef:
+        name: ejabberd-admin-bootstrap
+        key: ctl_on_create
+
+apiPermissions:
+  "admin access":
+    what:
+      - "*"
+      - "!stop"
+      - "!start"
+    who:
+      access:
+        allow:
+          - acl: loopback
+          - acl: admin
+      oauth:
+        access:
+          allow:
+            - acl: loopback
+            - acl: admin
+        scope: ejabberd:admin
+  "console commands":
+    from:
+      - ejabberd_ctl
+      - mod_http_api
+    what: "*"
+    who: all
+  "public commands":
+    what:
+      - status
+      - connected_users_number
+    who:
+      ip: 127.0.0.1/8
+  "webadmin commands":
+    from:
+      - ejabberd_web_admin
+    who:
+      access:
+        allow:
+          - acl: admin
+    what:
+      - "*"
+
+# expose admin UI + HTTP API handlers via HTTPS (port 5443)
+listen:
+  https:
+    options:
+      request_handlers:
+        /admin: ejabberd_web_admin
+        /api: mod_http_api
+  http:
+    expose: false
+    options:
+      request_handlers:
+        /admin: ejabberd_web_admin
+        /api: mod_http_api
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - ejabberd
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - ejabberd
+        topologyKey: kubernetes.io/hostname
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/instance
+                operator: In
+                values:
+                  - ejabberd
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - ejabberd
+          topologyKey: topology.kubernetes.io/zone
