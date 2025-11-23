@@ -175,12 +175,12 @@ Observed results:
    ```bash
    helm dependency update chart/charts/xmpp
    ```
-2. Provide a production values file (start from `chart/local-values.yaml` or your own) that includes image/tag information, persistent volume classes that exist on GKE, and external service annotations if needed.
+2. Provide a production values file (start from `ejabberd/values.yaml` or your own) that includes image/tag information, persistent volume classes that exist on GKE, and external service annotations if needed.
 3. Install/upgrade the release:
    ```bash
    helm upgrade --install xmpp chart/charts/xmpp \
      --namespace xmpp --create-namespace \
-     -f chart/local-values.yaml
+     -f ejabberd/values.yaml
    ```
 4. Validation commands:
    ```bash

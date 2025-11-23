@@ -43,4 +43,4 @@ modules:
 EOF
 
 echo "Wrote ${OUT_FILE}."
-echo "Apply with: helm upgrade --install ejabberd ejabberd/ejabberd -n ejabberd -f local-values.yaml -f ${OUT_FILE}"
+echo "Apply with: helm upgrade --install ejabberd ejabberd/ejabberd -n ejabberd -f values.yaml -f ${OUT_FILE}"
