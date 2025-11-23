@@ -3,11 +3,13 @@ infra/.DS_Store
 
 # Terraform state and local caches
 *.terraform/
-*/terraform/state/
+*/gcp/state/
+*/aws/state/
 *.tfstate
 *.tfstate.*
 *.tfvars
-!infra/terraform/terraform.tfvars.example
+!infra/gcp/terraform.tfvars.example
+!infra/aws/terraform.tfvars.example
 *tfplan
 
 ejabberd/cloudsql-values.generated.yaml

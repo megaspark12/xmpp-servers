@@ -21,7 +21,7 @@ resource "google_container_cluster" "primary" {
   node_pool {
     name           = "${var.cluster_name}-pool"
     node_locations = var.node_zones
-    
+
     initial_node_count = local.node_pool_initial_nodes_per_zone
 
     autoscaling {

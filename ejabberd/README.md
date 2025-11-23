@@ -70,7 +70,7 @@ To replace the default Mnesia database with managed PostgreSQL:
 1) Enable the ejabberd Cloud SQL module in Terraform (private IP + PITR by default):
 
 ```bash
-cd infra/terraform
+cd infra/gcp
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars (project_id, region, master_authorized_networks, etc.)
 # set enable_ejabberd_cloudsql=true (plus cloudsql_use_private_ip/cloudsql_create_psa as needed)
@@ -80,7 +80,7 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-2) Generate the Helm overlay from Terraform outputs (script reads state from `infra/terraform` and writes SQL creds into the values file):
+2) Generate the Helm overlay from Terraform outputs (script reads state from `infra/gcp` and writes SQL creds into the values file):
 
 ```bash
 cd ejabberd

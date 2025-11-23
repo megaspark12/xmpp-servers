@@ -1,0 +1,17 @@
+region        = "us-east-1"
+cluster_name  = "xmpp-prod"
+cluster_version = "1.30"
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+
+api_allowed_cidrs = [
+  "203.0.113.42/32" # replace with your workstation /32
+]
+
+node_pool_min_count = 3
+node_pool_max_count = 6
+
+# Optional: enable managed databases
+# enable_ejabberd_rds = true
+# enable_openfire_rds = true
+# openfire_service_account_namespace = "openfire"
+# openfire_service_account_name      = "openfire"

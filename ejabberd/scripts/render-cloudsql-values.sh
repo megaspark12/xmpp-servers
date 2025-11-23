@@ -2,7 +2,7 @@
 set -euo pipefail
 
 OUT_FILE=${1:-cloudsql-values.generated.yaml}
-TF_DIR="../infra/terraform"
+TF_DIR="../infra/gcp"
 
 if ! command -v terraform >/dev/null 2>&1; then
   echo "terraform not found in PATH" >&2
